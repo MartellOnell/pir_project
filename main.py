@@ -3,6 +3,10 @@ import sys
 import random
 from collections import defaultdict
 
+from config import SimulationSettings, SimulationStatusChoices
+
+from settings_interface_main import SettingsFrame
+
 COLORS = {
     'background': (0, 0, 0),
     'text': (200, 200, 200),
@@ -19,9 +23,33 @@ class Bush:
     def __init__(self, x, y):
         self.x = x
         self.y = y
-        self.berries = random.randint(10, 20)
-        self.regrowth_time = 50
         self.current_regrowth = 0
+        # костыль ибо я не хочу лезть в логику
+        self.berries = 0
+        self.__is_berries_called = False
+    
+    # не постоянные переменные, которые можно поменять
+    @property
+    def berries(self):
+        if self.__is_berries_called:
+            return self.__berries
+        else:
+            self.__berries = random.randint(
+                SimulationSettings().get_attr('berries_random_from'),
+                SimulationSettings().get_attr('berries_random_to'),
+            )
+            self.__is_berries_called = True
+
+            return self.__berries
+        
+    @berries.setter
+    def berries(self, value):
+        self.__is_berries_called = True
+        self.__berries = value
+
+    @property
+    def regrowth_time(self):
+        return SimulationSettings().get_attr('berries_regrowth_time')
 
     def take_berry(self):
         if self.berries > 0:
@@ -30,7 +58,7 @@ class Bush:
         return False
 
     def update(self):
-        if self.berries < 20:
+        if self.berries < SimulationSettings().get_attr('berries_random_to'):
             self.current_regrowth += 1
             if self.current_regrowth >= self.regrowth_time:
                 self.berries += 1
@@ -42,11 +70,35 @@ class Rabbit:
         self.x = x
         self.y = y
         self.age = 0
-        self.max_age = random.randint(150, 250)
         self.breeding_cooldown = 0
-        self.breeding_probability = 1
-        self.min_breeding_age = 8
-        self.vision_radius = 15
+        # костыль ибо я не хочу лезть в логику
+        self.__max_age = 0
+
+    
+    # не постоянные переменные, которые можно поменять
+    @property
+    def max_age(self):
+        if self.__max_age != 0:
+            return self.__max_age
+        else:
+            self.__max_age = random.randint(
+                SimulationSettings().get_attr('rabbit_max_age_random_from'),
+                SimulationSettings().get_attr('rabbit_max_age_random_to'),
+            )
+
+            return self.__max_age
+
+    @property
+    def min_breeding_age(self):
+        return SimulationSettings().get_attr('rabbit_min_breeding_age')
+    
+    @property
+    def breeding_probability(self):
+        return SimulationSettings().get_attr('rabbit_breeding_probability')
+    
+    @property
+    def vision_radius(self):
+        return SimulationSettings().get_attr('rabbit_vision_radius')
 
 
 class Fox:
@@ -54,15 +106,41 @@ class Fox:
         self.x = x
         self.y = y
         self.age = 0
-        self.max_age = random.randint(250, 350)
         self.hunger = 0
         self.hunting_cooldown = 10
         self.breeding_cooldown = 0
-        self.breeding_probability = 0.6
-        self.min_breeding_age = 10
-        self.move_speed = 6
-        self.vision_radius = self.move_speed * 5
         self.breeding_interest = 0
+        # костыль ибо я не хочу лезть в логику
+        self.__max_age = 0
+
+    # не постоянные переменные, которые можно поменять
+    @property
+    def max_age(self):
+        if self.__max_age != 0:
+            return self.__max_age
+        else:
+            self.__max_age = random.randint(
+                SimulationSettings().get_attr('fox_max_age_random_from'),
+                SimulationSettings().get_attr('fox_max_age_random_to'),
+            )
+
+            return self.__max_age
+        
+    @property
+    def breeding_probability(self):
+        return SimulationSettings().get_attr('fox_breeding_probability')
+        
+    @property
+    def min_breeding_age(self):
+        return SimulationSettings().get_attr('fox_min_breeding_age')
+        
+    @property
+    def move_speed(self):
+        return SimulationSettings().get_attr('fox_move_speed')
+        
+    @property
+    def vision_radius(self):
+        return SimulationSettings().get_attr('fox_vision_radius')
 
 
 class Simulation:
@@ -114,27 +192,6 @@ class Simulation:
                     if bush.take_berry():
                         fox.hunger = max(0, fox.hunger - 30)
                         break
-
-    def hunt_rabbits(self):
-        eaten = set()
-        for fox in self.foxes:
-            fox.hunger += 1
-            if fox.hunger > 100:
-                self.foxes.remove(fox)
-                continue
-
-            if fox.hunting_cooldown > 0:
-                continue
-
-            targets = [r for r in self.rabbits
-                       if abs(r.x - fox.x) <= 2
-                       and abs(r.y - fox.y) <= 2]
-            if targets and random.random() < 0.7:
-                eaten.update(random.sample(targets, min(2, len(targets))))
-                fox.hunting_cooldown = 25
-                fox.breeding_interest += 5
-                fox.hunger = max(0, fox.hunger - 50)
-        self.rabbits = [r for r in self.rabbits if r not in eaten]
 
     def update_cooldowns(self):
         for fox in self.foxes:
@@ -257,11 +314,16 @@ class Simulation:
 class SimulationGUI:
     def __init__(self):
         pygame.init()
+        self.simulation = Simulation(300, 300)
+        self.simulation.random_populate(
+            rabbit_count=SimulationSettings().get_attr("rabbit_amount"),
+            fox_count=SimulationSettings().get_attr("fox_amount"),
+            bush_count=SimulationSettings().get_attr("bush_amount"),
+        )
+        SimulationSettings().set_value('status', SimulationStatusChoices.SIMULATION)
         self.screen = pygame.display.set_mode((900, 600))
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 24)
-        self.state = "setup"
-        self.simulation = None
         self.speed_factor = 3
         self.frame_counter = 0
         self.setup_state = {
@@ -271,57 +333,10 @@ class SimulationGUI:
             'active_field': None,
         }
 
-    def draw_button(self, text, rect):
-        pygame.draw.rect(self.screen, COLORS['button'], rect)
-        text_surf = self.font.render(text, True, COLORS['text'])
-        self.screen.blit(text_surf, (rect.x + 10, rect.y + 5))
-        return rect.collidepoint(pygame.mouse.get_pos())
+    @property
+    def state(self):
+        return SimulationSettings().get_attr('status')
 
-    def draw_text_field(self, text, rect, active=False):
-        color = COLORS['active_field'] if active else COLORS['text_field']
-        pygame.draw.rect(self.screen, color, rect)
-        text_surf = self.font.render(text, True, COLORS['text'])
-        self.screen.blit(text_surf, (rect.x + 10, rect.y + 5))
-
-    def handle_setup_events(self):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                mouse_pos = pygame.mouse.get_pos()
-                if pygame.Rect(100, 100, 200, 30).collidepoint(mouse_pos):
-                    self.setup_state['active_field'] = 'rabbits'
-                elif pygame.Rect(100, 150, 200, 30).collidepoint(mouse_pos):
-                    self.setup_state['active_field'] = 'foxes'
-                elif pygame.Rect(100, 200, 200, 30).collidepoint(mouse_pos):
-                    self.setup_state['active_field'] = 'bushes'
-                elif pygame.Rect(100, 250, 200, 40).collidepoint(mouse_pos):
-                    rabbits = int(self.setup_state['rabbits']) if self.setup_state['rabbits'] else 0
-                    foxes = int(self.setup_state['foxes']) if self.setup_state['foxes'] else 0
-                    bushes = int(self.setup_state['bushes']) if self.setup_state['bushes'] else 0
-                    self.simulation = Simulation(300, 300)
-                    self.simulation.random_populate(rabbits, foxes, bushes)
-                    self.state = 'simulation'
-            if event.type == pygame.KEYDOWN and self.setup_state['active_field']:
-                if event.key == pygame.K_BACKSPACE:
-                    self.setup_state[self.setup_state['active_field']] = \
-                        self.setup_state[self.setup_state['active_field']][:-1]
-                elif event.unicode.isdigit():
-                    self.setup_state[self.setup_state['active_field']] += event.unicode
-
-    def draw_setup_screen(self):
-        self.screen.fill(COLORS['background'])
-        self.draw_text_field(f"Rabbits: {self.setup_state['rabbits']}",
-                             pygame.Rect(100, 100, 200, 30),
-                             self.setup_state['active_field'] == 'rabbits')
-        self.draw_text_field(f"Foxes: {self.setup_state['foxes']}",
-                             pygame.Rect(100, 150, 200, 30),
-                             self.setup_state['active_field'] == 'foxes')
-        self.draw_text_field(f"Bushes: {self.setup_state['bushes']}",
-                             pygame.Rect(100, 200, 200, 30),
-                             self.setup_state['active_field'] == 'bushes')
-        self.draw_button("Start Simulation", pygame.Rect(100, 250, 200, 40))
 
     def draw_simulation(self):
         self.screen.fill(COLORS['background'])
@@ -341,10 +356,7 @@ class SimulationGUI:
 
     def run(self):
         while True:
-            if self.state == "setup":
-                self.draw_setup_screen()
-                self.handle_setup_events()
-            elif self.state == "simulation":
+            if self.state == SimulationStatusChoices.SIMULATION:
                 self.frame_counter += 1
                 if self.frame_counter % self.speed_factor == 0:
                     self.simulation.tick()
@@ -354,10 +366,15 @@ class SimulationGUI:
                     if event.type == pygame.QUIT:
                         pygame.quit()
                         sys.exit()
+            # elif self.state == "naked simula"
             pygame.display.flip()
             self.clock.tick(30)
 
 
 if __name__ == "__main__":
+
+    settings_frame = SettingsFrame()
+    settings_frame.mainloop()
+    
     gui = SimulationGUI()
     gui.run()
