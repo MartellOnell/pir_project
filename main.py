@@ -1,7 +1,10 @@
+from types import SimpleNamespace
+
 import pygame
 import sys
 import random
 from collections import defaultdict
+import time
 
 from config import SimulationSettings, SimulationStatusChoices
 
@@ -311,6 +314,48 @@ class Simulation:
         self.foxes.extend(new_foxes)
 
 
+class NakedSimulationRunner:
+    def __init__(self):
+        self.config = SimulationSettings()
+        self.simulation = Simulation(300, 300)
+        self.simulation.random_populate(
+            rabbit_count=self.config.get_attr("rabbit_amount"),
+            fox_count=self.config.get_attr("fox_amount"),
+            bush_count=self.config.get_attr("bush_amount"),
+        )
+
+    @property
+    def statistics_template(self):
+        return '\r----------\nstatistic: \nrabbits: {0}\nfoxes: {1}\nticks: {2}\nbushes: {3}\n----------'
+
+    def get_statistics(self, tick_counter: int = 0):
+        sys.stdout.write(
+            self.statistics_template.format(
+                len(self.simulation.rabbits),
+                len(self.simulation.foxes),
+                tick_counter,
+                len(self.simulation.bushes),
+            ),
+        )
+
+    def run(self):
+        tick_counter: int = 0
+        sys.stdout.write('starting simulation')
+        time.sleep(3)
+
+        while True:
+            tick_counter += 1
+            self.simulation.tick()
+            # self.get_statistics(tick_counter)
+            # кейс когда один вид вымирает и мы завершаем симуляцию
+            if len(self.simulation.rabbits) == 0 or len(self.simulation.foxes) == 0:
+                self.get_statistics(tick_counter)
+                sys.stdout.write('\nsimulation finished')
+                input('\npress enter to exit')
+                break
+
+
+
 class SimulationGUI:
     def __init__(self):
         pygame.init()
@@ -320,18 +365,11 @@ class SimulationGUI:
             fox_count=SimulationSettings().get_attr("fox_amount"),
             bush_count=SimulationSettings().get_attr("bush_amount"),
         )
-        SimulationSettings().set_value('status', SimulationStatusChoices.SIMULATION)
         self.screen = pygame.display.set_mode((900, 600))
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 24)
         self.speed_factor = 3
         self.frame_counter = 0
-        self.setup_state = {
-            'rabbits': '',
-            'foxes': '',
-            'bushes': '',
-            'active_field': None,
-        }
 
     @property
     def state(self):
@@ -366,7 +404,6 @@ class SimulationGUI:
                     if event.type == pygame.QUIT:
                         pygame.quit()
                         sys.exit()
-            # elif self.state == "naked simula"
             pygame.display.flip()
             self.clock.tick(30)
 
@@ -375,6 +412,11 @@ if __name__ == "__main__":
 
     settings_frame = SettingsFrame()
     settings_frame.mainloop()
-    
-    gui = SimulationGUI()
-    gui.run()
+
+    if SimulationSettings().get_attr('status') == SimulationStatusChoices.SIMULATION:
+        print('chosen simulation')
+        gui = SimulationGUI()
+        gui.run()
+    elif SimulationSettings().get_attr('status') == SimulationStatusChoices.NAKED_SIMULATION:
+        print('chosen naked simulation')
+        NakedSimulationRunner().run()
