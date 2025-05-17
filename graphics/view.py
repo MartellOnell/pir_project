@@ -4,14 +4,11 @@ from graphics.storage import OutputStatistic
 
 
 def plot_statistics(data: OutputStatistic):
-       ticks = [i + 1 for i in range(len(data['rabbits']))]
+       plt.plot(data['rabbits'], data['foxes'], 'o-', color='red', label='amount')
        
-       plt.scatter(ticks, data['foxes'], color='red', label='Foxes')
-       plt.scatter(ticks, data['rabbits'], color='blue', label='Rabbits')
-       
-       plt.xlabel('Tick (Index)')
-       plt.ylabel('Amount (Value)')
-       plt.title('Scatter Plot of Two Lists')
+       plt.xlabel('Rabbits')
+       plt.ylabel('Foxes')
+       plt.title('Scatter Plot ({0} ticks)'.format(len(data['rabbits'])))
        plt.legend()
        plt.grid(True)
        plt.show()
