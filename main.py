@@ -1,14 +1,16 @@
-from types import SimpleNamespace
-
 import pygame
 import sys
 import random
 from collections import defaultdict
 import time
+import pprint
+import json
 
 from config import SimulationSettings, SimulationStatusChoices
+from graphics import StatisticsStorage
 
 from settings_interface_main import SettingsFrame
+import subprocess
 
 COLORS = {
     'background': (0, 0, 0),
@@ -180,6 +182,15 @@ class Simulation:
         self.eat_berries()  # Новая функция
         self.breed_animals()
         self.update_bushes()  # Новая функция
+        StatisticsStorage().add_data(
+            data_type='r',
+            value=len(self.rabbits),
+        )
+        StatisticsStorage().add_data(
+            data_type='f',
+            value=len(self.foxes),
+        )
+
 
     def update_bushes(self):
         for bush in self.bushes:
@@ -346,14 +357,36 @@ class NakedSimulationRunner:
         while True:
             tick_counter += 1
             self.simulation.tick()
-            # self.get_statistics(tick_counter)
+            self.simulation.tick()
+            self.simulation.tick()
+            self.simulation.tick()
+            self.simulation.tick()
+            self.simulation.tick()
+            self.simulation.tick()
+            self.simulation.tick()
+            self.simulation.tick()
+            self.simulation.tick()
             # кейс когда один вид вымирает и мы завершаем симуляцию
             if len(self.simulation.rabbits) == 0 or len(self.simulation.foxes) == 0:
                 self.get_statistics(tick_counter)
+                pprint.pp(StatisticsStorage().get_statistics())
                 sys.stdout.write('\nsimulation finished')
-                input('\npress enter to exit')
                 break
 
+        # боже прости меня ибо я согрешил, но я рот ебал этого ткинтера
+        data_to_subprocess = json.dumps(StatisticsStorage().get_statistics())
+        subprocess_script: str = (
+            "from graphics import plot_statistics; "
+            "data = {0}; "
+            "plot_statistics(data)".format(data_to_subprocess)
+        )
+        subprocess.run(
+            [
+                "python", 
+                "-c",
+                subprocess_script,
+            ]
+        )
 
 
 class SimulationGUI:

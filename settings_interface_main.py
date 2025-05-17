@@ -56,8 +56,8 @@ class SettingsFrame(ttk.Frame):
             self.callback_submit()
         # TODO дев метод, выпилить когда проект будет закончен
         SimulationSettings()._representation()
-
-        self.quit()
+        self.master.destroy()
+        self.master.quit()
 
 if __name__ == '__main__':
     frame_instance = SettingsFrame(width=400, height=300)

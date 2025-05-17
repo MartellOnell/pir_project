@@ -1,4 +1,5 @@
 import pprint
+from typing import Final, TypedDict
 
 from settings_interface.base import Singleton
 
