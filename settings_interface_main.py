@@ -49,7 +49,7 @@ class SettingsFrame(ttk.Frame):
 
         ttk.Button(
             self,
-            text='Draw statistics',
+            text='Draw last statistics',
             command=lambda: spawn_process_plot()
         ).grid(row=3, column=3)
 
