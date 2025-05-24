@@ -11,6 +11,7 @@ from config import (
     SimulationStatusChoices,
     SimulationSettings,
 )
+from graphics.view import spawn_process_plot
 
 
 class SettingsFrame(ttk.Frame):
@@ -45,6 +46,12 @@ class SettingsFrame(ttk.Frame):
             text='Start naked simulation',
             command=lambda: self.submit_entries(SimulationStatusChoices.NAKED_SIMULATION)
         ).grid(row=1, column=3)
+
+        ttk.Button(
+            self,
+            text='Draw statistics',
+            command=lambda: spawn_process_plot()
+        ).grid(row=3, column=3)
 
         self.pack()
     

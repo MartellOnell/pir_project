@@ -1,7 +1,10 @@
 import pprint
-from typing import Final, TypedDict
+from typing import Final
 
 from settings_interface.base import Singleton
+
+
+STATISTIC_PATH: Final[str] = "statistics.json"
 
 
 class SimulationStatusChoices:

@@ -6,7 +6,7 @@ import time
 import pprint
 import json
 
-from config import SimulationSettings, SimulationStatusChoices
+from config import SimulationSettings, SimulationStatusChoices, STATISTIC_PATH
 from graphics import StatisticsStorage
 
 from settings_interface_main import SettingsFrame
@@ -366,27 +366,18 @@ class NakedSimulationRunner:
             self.simulation.tick()
             self.simulation.tick()
             self.simulation.tick()
+            # запись статистики в файл
+            with open(STATISTIC_PATH, 'a') as f:
+                f.truncate(0)  # очищаем файл перед записью
+                f.write(
+                    json.dumps(StatisticsStorage().get_statistics(), indent=4)
+                )
             # кейс когда один вид вымирает и мы завершаем симуляцию
             if len(self.simulation.rabbits) == 0 or len(self.simulation.foxes) == 0:
                 self.get_statistics(tick_counter)
                 pprint.pp(StatisticsStorage().get_statistics())
                 sys.stdout.write('\nsimulation finished')
                 break
-
-        # боже прости меня ибо я согрешил, но я рот ебал этого ткинтера
-        data_to_subprocess = json.dumps(StatisticsStorage().get_statistics())
-        subprocess_script: str = (
-            "from graphics import plot_statistics; "
-            "data = {0}; "
-            "plot_statistics(data)".format(data_to_subprocess)
-        )
-        subprocess.run(
-            [
-                "python", 
-                "-c",
-                subprocess_script,
-            ]
-        )
 
 
 class SimulationGUI:
