@@ -18,7 +18,7 @@ STRING_VARS: dict[str, str] = {
 }
 
 INTEGER_VARS: dict[str, int] = {
-    'bush_amount': 50,
+    'bush_amount': 0,
     'berries_random_from': 10,
     'berries_random_to': 20,
     'berries_regrowth_time': 50,
