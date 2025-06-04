@@ -1,5 +1,5 @@
 from typing import Callable
-from tkinter import ttk
+from tkinter import ttk, IntVar
 
 from settings_interface.managers import (
     IntegerSettingsManager,
@@ -17,6 +17,7 @@ from graphics.view import spawn_process_plot
 class SettingsFrame(ttk.Frame):
     def __init__(self, callback_submit: Callable = None, **kwargs):
         self.callback_submit = callback_submit
+        self._simulation_vars_config = SimulationSettings()
 
         super().__init__(None, **kwargs)
 
@@ -25,16 +26,17 @@ class SettingsFrame(ttk.Frame):
         self.integer_manager = IntegerSettingsManager(
             root_object=self, 
             column=0,
-            config=SimulationSettings(), # noqa
+            config=self._simulation_vars_config, # noqa
             vars_array=list(INTEGER_VARS.keys()),
         )
         self.float_manager = FloatParamsSettingsManager(
             root_object=self, 
             column=1,
-            config=SimulationSettings(), # noqa
+            config=self._simulation_vars_config, # noqa
             vars_array=list(FLOAT_VARS.keys()),
         )
 
+        # точки запуска и общая конфигурация
         ttk.Button(
             self, 
             text='Start simulation',
@@ -53,6 +55,19 @@ class SettingsFrame(ttk.Frame):
             command=lambda: spawn_process_plot()
         ).grid(row=3, column=3)
 
+        use_save_result_in_file_var = IntVar()
+        ttk.Checkbutton(
+            self,
+            command=(
+                lambda: self._simulation_vars_config.set_value(
+                    var_name='save_result_in_file',
+                    value=bool(use_save_result_in_file_var.get()),
+                )
+            ),
+            variable=use_save_result_in_file_var,
+            text='Save results in file',
+        ).grid(row=4, column=3)
+
         self.pack()
     
     def submit_entries(self, status: str):
@@ -61,8 +76,6 @@ class SettingsFrame(ttk.Frame):
         SimulationSettings().set_value('status', status)
         if callable(self.callback_submit):
             self.callback_submit()
-        # TODO дев метод, выпилить когда проект будет закончен
-        SimulationSettings()._representation()
         self.master.destroy()
         self.master.quit()
 

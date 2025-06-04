@@ -1,4 +1,4 @@
-import pprint
+import json
 from typing import Final
 
 from settings_interface.base import Singleton
@@ -15,6 +15,10 @@ class SimulationStatusChoices:
 
 STRING_VARS: dict[str, str] = {
     "status": SimulationStatusChoices.SETUP,
+}
+
+BOOLEAN_VARS: dict[str, bool] = {
+    "save_result_in_file": False,
 }
 
 INTEGER_VARS: dict[str, int] = {
@@ -42,11 +46,13 @@ FLOAT_VARS: dict[str, float] = {
 
 
 class SimulationSettings(metaclass=Singleton):
-    def __init__(self):
+    def __init__(self, logging: bool = True):
+        self._logging = logging
         self.__data = {
             **INTEGER_VARS,
             **FLOAT_VARS,
             **STRING_VARS,
+            **BOOLEAN_VARS,
         }
 
     def set_value(self, var_name: str, value: any) -> None:
@@ -66,8 +72,22 @@ class SimulationSettings(metaclass=Singleton):
             raise AttributeError(f"Attribute {var_name} not found")
         return self.__data.get(var_name)
     
-    def _representation(self) -> None:
+    def export_data(self) -> str:
         """
-        Чисто дев метод для просмотра содержимого класса
+        Экспорт данных в строку
         """
-        pprint.pp(self.__data)
+        return json.dumps(self.__data)
+
+    def import_data(self, data: str) -> None:
+        """
+        Импорт данных из строки
+        """
+        try:
+            new_data = json.loads(data)
+            for key, value in new_data.items():
+                if key in self.__data:
+                    self.set_value(key, value)
+                else:
+                    print(f"Warning: {key} not found in settings")
+        except json.JSONDecodeError as e:
+            print(f"Error decoding JSON: {e}")

@@ -1,16 +1,23 @@
-import pygame
+import os
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
+
+import subprocess
+from functools import cached_property
+from typing import TextIO, Callable
 import sys
 import random
 from collections import defaultdict
 import time
-import pprint
+import argparse
 import json
+
+import pygame
 
 from config import SimulationSettings, SimulationStatusChoices, STATISTIC_PATH
 from graphics import StatisticsStorage
-
 from settings_interface_main import SettingsFrame
-import subprocess
+from utils import Timer
+
 
 COLORS = {
     'background': (0, 0, 0),
@@ -155,6 +162,11 @@ class Simulation:
         self.rabbits = []
         self.foxes = []
         self.bushes = []
+        self._ticks_amount = 0
+
+    @property
+    def ticks_amount(self) -> int:
+        return self._ticks_amount
 
     def random_populate(self, rabbit_count: int, fox_count: int, bush_count: int):
         for _ in range(rabbit_count):
@@ -174,6 +186,7 @@ class Simulation:
             ))
 
     def tick(self):
+        self._ticks_amount += 1
         self.age_and_die()
         self.update_cooldowns()  # Добавлено обновление кулдаунов
         self.check_overcrowding()
@@ -326,68 +339,129 @@ class Simulation:
 
 
 class NakedSimulationRunner:
-    def __init__(self):
-        self.config = SimulationSettings()
-        self.simulation = Simulation(300, 300)
-        self.simulation.random_populate(
-            rabbit_count=self.config.get_attr("rabbit_amount"),
-            fox_count=self.config.get_attr("fox_amount"),
-            bush_count=self.config.get_attr("bush_amount"),
+    def __init__(
+        self,
+        data_results_file_path: str = STATISTIC_PATH,
+        sim_id: int = 0,
+        ticks_limit: int | None = None,
+    ):
+        self._config: SimulationSettings = SimulationSettings()
+        self._simulation: Simulation = Simulation(300, 300)
+        self._simulation.random_populate(
+            rabbit_count=self._config.get_attr("rabbit_amount"),
+            fox_count=self._config.get_attr("fox_amount"),
+            bush_count=self._config.get_attr("bush_amount"),
+        )
+        self._data_results_file_path: str = data_results_file_path
+        self._sim_id: int = sim_id
+        self._ticks_limit: int | None = ticks_limit
+        self.end_condition: Callable[[], bool] = lambda: (
+            self._simulation.ticks_amount >= self._ticks_limit or
+            len(self._simulation.rabbits) == 0 or
+            len(self._simulation.foxes) == 0
+        ) if self._ticks_limit is not None else lambda: (
+            len(self._simulation.rabbits) == 0 or
+            len(self._simulation.foxes) == 0
         )
 
-    @property
-    def statistics_template(self):
-        return '\r----------\nstatistic: \nrabbits: {0}\nfoxes: {1}\nticks: {2}\nbushes: {3}\n----------'
-
-    def get_statistics(self, tick_counter: int = 0):
-        sys.stdout.write(
-            self.statistics_template.format(
-                len(self.simulation.rabbits),
-                len(self.simulation.foxes),
-                tick_counter,
-                len(self.simulation.bushes),
-            ),
-        )
+    @cached_property
+    def _is_save_statistics_to_file(self) -> bool:
+        return self._config.get_attr("save_result_in_file")
 
     def run(self):
-        tick_counter: int = 0
-        sys.stdout.write('starting simulation')
+        print(f'starting simulation {self._sim_id}')
         time.sleep(3)
 
-        while True:
-            tick_counter += 1
-            self.simulation.tick()
-            self.simulation.tick()
-            self.simulation.tick()
-            self.simulation.tick()
-            self.simulation.tick()
-            self.simulation.tick()
-            self.simulation.tick()
-            self.simulation.tick()
-            self.simulation.tick()
-            self.simulation.tick()
-            # запись статистики в файл
-            with open(STATISTIC_PATH, 'a') as f:
-                f.truncate(0)  # очищаем файл перед записью
-                f.write(
-                    json.dumps(StatisticsStorage().get_statistics(), indent=4)
+        if self._ticks_limit is not None:
+            self.end_condition = lambda: (
+                self._simulation.ticks_amount >= self._ticks_limit or
+                len(self._simulation.rabbits) == 0 or
+                len(self._simulation.foxes) == 0
+            )
+        else:
+            self.end_condition = lambda: (
+                len(self._simulation.rabbits) == 0 or
+                len(self._simulation.foxes) == 0
+            )
+
+        f: TextIO | None = None
+        if self._is_save_statistics_to_file:
+            f = open(self._data_results_file_path, 'a')
+
+        with Timer() as timer:
+            while True: # 10 тиков в одну итерацию
+                self._simulation.tick()
+                self._simulation.tick()
+                self._simulation.tick()
+                self._simulation.tick()
+                self._simulation.tick()
+                self._simulation.tick()
+                self._simulation.tick()
+                self._simulation.tick()
+                self._simulation.tick()
+                self._simulation.tick()
+                self._simulation.tick()
+                self._simulation.tick()
+                self._simulation.tick()
+                self._simulation.tick()
+                self._simulation.tick()
+                self._simulation.tick()
+                self._simulation.tick()
+                self._simulation.tick()
+                self._simulation.tick()
+                self._simulation.tick()
+                # запись статистики в файл
+                if self._is_save_statistics_to_file:
+                    f.truncate(0)  # очищаем файл перед записью
+                    f.write(
+                        json.dumps(StatisticsStorage().get_statistics(), indent=4),
+                    )
+                # кейс когда один вид вымирает и мы завершаем симуляцию
+                if self.end_condition():
+                    break
+            timer.set_amount_ticks(self._simulation.ticks_amount)
+            if self._is_save_statistics_to_file:
+                f.close()
+            print(f'simulation {self._sim_id} finished')
+
+class PhaseSpaceRunner:
+    @staticmethod
+    def run():
+        exported_settings = SimulationSettings().export_data()
+        subprocess_command = (
+            "from config import SimulationSettings; "
+            "from main import NakedSimulationRunner; "
+            "SimulationSettings().import_data('{2}'); "
+            "NakedSimulationRunner(data_results_file_path='{0}', sim_id={1}, ticks_limit={3}).run()"
+        )
+        processes = []
+        for i in range(10):
+            print(f'{i} phase space simulation started')
+            p = subprocess.Popen([
+                "python",
+                "-c",
+                subprocess_command.format(
+                    f'./phase_space_data/phase_part_{i}.json', # data_results_file_path
+                    i, #  sim_id
+                    exported_settings, # data (exported config)
+                    1_000_000,  # ticks_limit
                 )
-            # кейс когда один вид вымирает и мы завершаем симуляцию
-            if len(self.simulation.rabbits) == 0 or len(self.simulation.foxes) == 0:
-                self.get_statistics(tick_counter)
-                pprint.pp(StatisticsStorage().get_statistics())
-                sys.stdout.write('\nsimulation finished')
-                break
+            ])
+            processes.append(p)
+        for p in processes:
+            p.wait()
 
 
 class SimulationGUI:
-    def __init__(self):
+    def __init__(self, data_results_file_path: str = STATISTIC_PATH):
         pygame.init()
+        self._config: SimulationSettings = SimulationSettings()
+        self._data_results_file_path: str = data_results_file_path
         self.simulation = Simulation(300, 300)
         self.simulation.random_populate(
-            rabbit_count=SimulationSettings().get_attr("rabbit_amount"),
-            fox_count=SimulationSettings().get_attr("fox_amount"),
-            bush_count=SimulationSettings().get_attr("bush_amount"),
+            rabbit_count=self._config.get_attr("rabbit_amount"),
+            fox_count=self._config.get_attr("fox_amount"),
+            bush_count=self._config.get_attr("bush_amount"),
         )
         self.screen = pygame.display.set_mode((900, 600))
         self.clock = pygame.time.Clock()
@@ -397,8 +471,11 @@ class SimulationGUI:
 
     @property
     def state(self):
-        return SimulationSettings().get_attr('status')
+        return self._config.get_attr('status')
 
+    @cached_property
+    def _is_save_statistics_to_file(self) -> bool:
+        return self._config.get_attr('save_result_in_file')
 
     def draw_simulation(self):
         self.screen.fill(COLORS['background'])
@@ -417,7 +494,17 @@ class SimulationGUI:
         self.screen.blit(text, (610, 70))
 
     def run(self):
+        f: TextIO | None = None
+
+        if self._is_save_statistics_to_file:
+            f = open(self._data_results_file_path, 'a')
+
         while True:
+            if self._is_save_statistics_to_file:
+                f.truncate(0)  # очищаем файл перед записью
+                f.write(
+                    json.dumps(StatisticsStorage().get_statistics(), indent=4),
+                )
             if self.state == SimulationStatusChoices.SIMULATION:
                 self.frame_counter += 1
                 if self.frame_counter % self.speed_factor == 0:
@@ -426,6 +513,8 @@ class SimulationGUI:
                 self.draw_simulation()
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
+                        if self._is_save_statistics_to_file:
+                            f.close()
                         pygame.quit()
                         sys.exit()
             pygame.display.flip()
@@ -433,14 +522,32 @@ class SimulationGUI:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '-ps',
+        '--phase-space',
+        help='phase space ||writing result in files||\n'
+             '(bro I don’t quite understand what it is,\n'
+             'but I promise, at the project show I will understand it)',
+        type=bool,
+        default=False,
+    )
+    args = parser.parse_args()
 
-    settings_frame = SettingsFrame()
-    settings_frame.mainloop()
+    if args.phase_space:
+        SimulationSettings().set_value('save_result_in_file', True)
+        SimulationSettings().set_value('status', SimulationStatusChoices.NAKED_SIMULATION)
+        PhaseSpaceRunner.run()
 
-    if SimulationSettings().get_attr('status') == SimulationStatusChoices.SIMULATION:
-        print('chosen simulation')
-        gui = SimulationGUI()
-        gui.run()
-    elif SimulationSettings().get_attr('status') == SimulationStatusChoices.NAKED_SIMULATION:
-        print('chosen naked simulation')
-        NakedSimulationRunner().run()
+    else:
+        print("settings window activated")
+        settings_frame = SettingsFrame()
+        settings_frame.mainloop()
+
+        if SimulationSettings().get_attr('status') == SimulationStatusChoices.SIMULATION:
+            print('chosen simulation')
+            gui = SimulationGUI()
+            gui.run()
+        elif SimulationSettings().get_attr('status') == SimulationStatusChoices.NAKED_SIMULATION:
+            print('chosen naked simulation')
+            NakedSimulationRunner().run()

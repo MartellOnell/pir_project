@@ -1,5 +1,8 @@
 from typing import TypedDict, Final
 
+import numpy as np
+import numpy.typing as npt
+
 from settings_interface.base import Singleton
 
 
@@ -10,8 +13,8 @@ STATISTIC_DATA_TYPE_MISMATCH_ERR: Final[str] = "Такого типа данны
 
 
 class OutputStatistic(TypedDict):
-    rabbits: list[int]
-    foxes: list[int]
+    rabbits: list
+    foxes: list
 
 
 class StatisticsStorage(metaclass=Singleton):
@@ -21,8 +24,8 @@ class StatisticsStorage(metaclass=Singleton):
     """
 
     def __init__(self):
-        self._rabbits_statistic: list[int] = []
-        self._foxes_statistic: list[int] = []
+        self._rabbits_statistic: npt.ArrayLike = np.array([], dtype=np.int8)
+        self._foxes_statistic: npt.ArrayLike = np.array([], dtype=np.int8)
 
     def add_data(self, data_type: str, value: int) -> None:
         """
@@ -30,9 +33,9 @@ class StatisticsStorage(metaclass=Singleton):
         """
         match data_type:
             case "r":
-                self._rabbits_statistic.append(value)
+                self._rabbits_statistic = np.append(self._rabbits_statistic, [value])
             case "f":
-                self._foxes_statistic.append(value)
+                self._foxes_statistic = np.append(self._foxes_statistic, [value])
             case _:
                 raise ValueError(STATISTIC_DATA_TYPE_MISMATCH_ERR.format(data_type))
 
@@ -41,6 +44,6 @@ class StatisticsStorage(metaclass=Singleton):
         Вывод статистики словарём
         """
         return OutputStatistic(
-            rabbits=self._rabbits_statistic,
-            foxes=self._foxes_statistic,
+            rabbits=self._rabbits_statistic.tolist(),
+            foxes=self._foxes_statistic.tolist(),
         )

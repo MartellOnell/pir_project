@@ -17,6 +17,7 @@ def plot_statistics(data: OutputStatistic):
        plt.grid(True)
        plt.show()
 
+
 def spawn_process_plot():
     """
     Запуск процесса отрисовки графика
