@@ -1,7 +1,11 @@
 import json
-from typing import Final
+from typing import Final, NewType
 
 from settings_interface.base import Singleton
+
+
+type ConfigValue = int | float | bool | str
+type ConfigContainer = dict[str, ConfigValue]
 
 
 STATISTIC_PATH: Final[str] = "statistics.json"
@@ -47,24 +51,25 @@ FLOAT_VARS: dict[str, float] = {
 
 class SimulationSettings(metaclass=Singleton):
     def __init__(self, logging: bool = True):
-        self._logging = logging
-        self.__data = {
+        self._logging: bool = logging
+        self.__data: ConfigContainer = {
             **INTEGER_VARS,
             **FLOAT_VARS,
             **STRING_VARS,
             **BOOLEAN_VARS,
         }
 
-    def set_value(self, var_name: str, value: any) -> None:
+    def set_value(self, var_name: str, value: ConfigValue) -> None:
         """
         Сеттер для установки значения атрибута
         """
         if var_name not in self.__data:
             raise AttributeError(f"Attribute {var_name} not found")
         self.__data[var_name] = value
-        print(f"Set {var_name} to {value}")
+        if self._logging:
+            print(f"conf | Set {var_name} to {value}")
 
-    def get_attr(self, var_name: str) -> any:
+    def get_attr(self, var_name: str) -> ConfigValue:
         """
         Геттер для получения значения атрибута
         """
@@ -88,6 +93,8 @@ class SimulationSettings(metaclass=Singleton):
                 if key in self.__data:
                     self.set_value(key, value)
                 else:
-                    print(f"Warning: {key} not found in settings")
+                    if self._logging:
+                        print(f"conf | Warning: {key} not found in settings")
         except json.JSONDecodeError as e:
-            print(f"Error decoding JSON: {e}")
+            if self._logging:
+                print(f"conf | Error decoding JSON: {e}")

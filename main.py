@@ -232,8 +232,16 @@ class Simulation:
                 rabbit.breeding_cooldown -= 1
 
     def age_and_die(self):
-        self.rabbits = [r for r in self.rabbits if r.age <= r.max_age]
-        self.foxes = [f for f in self.foxes if f.age <= f.max_age]
+        self.rabbits = [
+            r
+            for r in self.rabbits
+            if r.age <= r.max_age
+        ]
+        self.foxes = [
+            f 
+            for f in self.foxes
+            if f.age <= f.max_age
+        ]
         for animal in self.rabbits + self.foxes:
             animal.age += 1
 
@@ -241,15 +249,25 @@ class Simulation:
         for species in [self.rabbits, self.foxes]:
             death_list = set()
             for animal in species:
-                count = sum(1 for other in species
-                            if abs(other.x - animal.x) <= 40
-                            and abs(other.y - animal.y) <= 40)
+                count = sum(
+                    1 for other in species
+                    if abs(other.x - animal.x) <= 40
+                    and abs(other.y - animal.y) <= 40
+                )
                 if count > 50 and random.random() < 0.2:
                     death_list.add(animal)
             if species == self.rabbits:
-                self.rabbits = [r for r in self.rabbits if r not in death_list]
+                self.rabbits = [
+                    r
+                    for r in self.rabbits
+                    if r not in death_list
+                ]
             else:
-                self.foxes = [f for f in self.foxes if f not in death_list]
+                self.foxes = [
+                    f
+                    for f in self.foxes
+                    if f not in death_list
+                ]
 
     def move_animals(self):
         # Перемещение кроликов
@@ -336,6 +354,14 @@ class Simulation:
                     f.breeding_cooldown = 10
                     f.breeding_interest = 0
         self.foxes.extend(new_foxes)
+
+
+class TickEventHandlerHandler:
+    def __init__(elem: str):
+        pass
+
+    def cast_handler():
+        pass
 
 
 class NakedSimulationRunner:
@@ -427,7 +453,7 @@ class NakedSimulationRunner:
 class PhaseSpaceRunner:
     @staticmethod
     def run():
-        exported_settings = SimulationSettings().export_data()
+        exported_settings: str = SimulationSettings().export_data()
         subprocess_command = (
             "from config import SimulationSettings; "
             "from main import NakedSimulationRunner; "

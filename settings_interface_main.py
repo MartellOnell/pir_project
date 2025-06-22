@@ -53,6 +53,14 @@ class SettingsFrame(ttk.Frame):
             self,
             text='Draw last statistics',
             command=lambda: spawn_process_plot()
+        ).grid(row=2, column=3)
+
+        ttk.Button(
+            self,
+            text='Draw last statistics per ticks',
+            command=lambda: spawn_process_plot(
+                plot_view_func='plot_statistics_per_tick',
+            )
         ).grid(row=3, column=3)
 
         use_save_result_in_file_var = IntVar()
