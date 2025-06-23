@@ -2,6 +2,7 @@ import os
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 
 import subprocess
+import multiprocessing
 from functools import cached_property
 from typing import TextIO, Callable
 import sys
@@ -548,32 +549,16 @@ class SimulationGUI:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '-ps',
-        '--phase-space',
-        help='phase space ||writing result in files||\n'
-             '(bro I don’t quite understand what it is,\n'
-             'but I promise, at the project show I will understand it)',
-        type=bool,
-        default=False,
-    )
-    args = parser.parse_args()
+    multiprocessing.freeze_support()
+    
+    print("settings window activated")
+    settings_frame = SettingsFrame()
+    settings_frame.mainloop()
 
-    if args.phase_space:
-        SimulationSettings().set_value('save_result_in_file', True)
-        SimulationSettings().set_value('status', SimulationStatusChoices.NAKED_SIMULATION)
-        PhaseSpaceRunner.run()
-
-    else:
-        print("settings window activated")
-        settings_frame = SettingsFrame()
-        settings_frame.mainloop()
-
-        if SimulationSettings().get_attr('status') == SimulationStatusChoices.SIMULATION:
-            print('chosen simulation')
-            gui = SimulationGUI()
-            gui.run()
-        elif SimulationSettings().get_attr('status') == SimulationStatusChoices.NAKED_SIMULATION:
-            print('chosen naked simulation')
-            NakedSimulationRunner().run()
+    if SimulationSettings().get_attr('status') == SimulationStatusChoices.SIMULATION:
+        print('chosen simulation')
+        gui = SimulationGUI()
+        gui.run()
+    elif SimulationSettings().get_attr('status') == SimulationStatusChoices.NAKED_SIMULATION:
+        print('chosen naked simulation')
+        NakedSimulationRunner().run()
