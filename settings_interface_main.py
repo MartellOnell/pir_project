@@ -1,5 +1,6 @@
 from typing import Callable
 from tkinter import ttk, IntVar
+from multiprocessing import Process
 
 from settings_interface.managers import (
     IntegerSettingsManager,

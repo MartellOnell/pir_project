@@ -1,4 +1,4 @@
-import subprocess
+import multiprocessing
 
 import matplotlib.pyplot as plt
 import json
@@ -34,16 +34,21 @@ def spawn_process_plot(plot_view_func: str = 'plot_statistics'):
     Запуск процесса отрисовки графика
     """
     with open(STATISTIC_PATH, 'r') as f:
-        data_to_subprocess = json.dumps(json.load(f))
-    subprocess_script: str = (
-        "from graphics import {0}; "
-        "data = {1}; "
-        "{0}(data)".format(plot_view_func, data_to_subprocess)
+        data_to_process = json.load(f)
+
+    
+    match plot_view_func:
+        case 'plot_statistics':
+            plot_func = plot_statistics
+        case 'plot_statistics_per_tick':
+            plot_func = plot_statistics_per_tick
+        case _:
+            raise ValueError(f"Unknown plot view function: {plot_view_func}")
+    
+    process = multiprocessing.Process(
+        target=plot_func,
+        args=(data_to_process,),
+        name='plot_process',
     )
-    subprocess.run(
-        [
-            "python",
-            "-c",
-            subprocess_script,
-        ]
-    )
+    process.start()
+    process.join()
